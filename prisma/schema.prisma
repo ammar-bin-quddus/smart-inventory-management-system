@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+}
+
+enum ProductStatus {
+  ACTIVE
+  OUT_OF_STOCK
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum RestockPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ─────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(MANAGER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders      Order[]
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────
+// CATEGORY
+// ─────────────────────────────────────────
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// ─────────────────────────────────────────
+// PRODUCT
+// ─────────────────────────────────────────
+
+model Product {
+  id                 String        @id @default(cuid())
+  name               String
+  categoryId         String
+  price              Decimal       @db.Decimal(10, 2)
+  stock              Int           @default(0)
+  minStockThreshold  Int           @default(5)
+  status             ProductStatus @default(ACTIVE)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  category     Category      @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  restockQueue RestockQueue?
+
+  @@map("products")
+}
+
+// ─────────────────────────────────────────
+// ORDER
+// ─────────────────────────────────────────
+
+model Order {
+  id           String      @id @default(cuid())
+  customerName String
+  status       OrderStatus @default(PENDING)
+  totalPrice   Decimal     @db.Decimal(10, 2)
+  userId       String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+// ─────────────────────────────────────────
+// ORDER ITEM
+// ─────────────────────────────────────────
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)  // price snapshot at time of order
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ─────────────────────────────────────────
+// RESTOCK QUEUE
+// ─────────────────────────────────────────
+
+model RestockQueue {
+  id        String          @id @default(cuid())
+  productId String          @unique   // one queue entry per product
+  priority  RestockPriority @default(LOW)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("restock_queue")
+}
+
+// ─────────────────────────────────────────
+// ACTIVITY LOG
+// ─────────────────────────────────────────
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  message   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
