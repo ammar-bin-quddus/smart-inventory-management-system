@@ -23,5 +23,21 @@ export default async function RestockQueuePage() {
     return left.product.stock - right.product.stock;
   });
 
-  return <RestockQueueClient queue={sortedQueue} />;
+  return (
+    <RestockQueueClient
+      queue={sortedQueue.map((item) => ({
+        id: item.id,
+        priority: item.priority,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          stock: item.product.stock,
+          minStockThreshold: item.product.minStockThreshold,
+          category: {
+            name: item.product.category.name,
+          },
+        },
+      }))}
+    />
+  );
 }

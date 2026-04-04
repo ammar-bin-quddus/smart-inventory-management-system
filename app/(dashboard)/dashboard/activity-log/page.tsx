@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { format } from "date-fns";
+﻿import Link from "next/link";
 
+import { LocalDateTime } from "@/components/local-date-time";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
@@ -18,9 +18,7 @@ export default async function ActivityLogPage({
 }: ActivityLogPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedPage = Number(resolvedSearchParams?.page ?? "1");
-  const page = Number.isFinite(requestedPage) && requestedPage > 0
-    ? requestedPage
-    : 1;
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const skip = (page - 1) * PAGE_SIZE;
 
   const [totalLogs, logs] = await Promise.all([
@@ -74,16 +72,16 @@ export default async function ActivityLogPage({
                   className="flex flex-col gap-1 py-4 sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div>
-                    <p className="text-sm font-medium text-zinc-950">
-                      {log.message}
-                    </p>
+                    <p className="text-sm font-medium text-zinc-950">{log.message}</p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {log.user.name} · {log.user.email}
+                      {log.user.name} | {log.user.email}
                     </p>
                   </div>
-                  <p className="text-xs text-zinc-500">
-                    {format(new Date(log.createdAt), "MMM d, yyyy · h:mm a")}
-                  </p>
+                  <LocalDateTime
+                    value={log.createdAt}
+                    variant="activity"
+                    className="text-xs text-zinc-500"
+                  />
                 </div>
               ))}
             </div>

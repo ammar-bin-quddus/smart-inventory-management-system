@@ -73,6 +73,10 @@ function calculateTotal(items: OrderItemSeed[]) {
   );
 }
 
+function createSeedOrderCode(index: number) {
+  return `ORD-SEED-${String(index).padStart(4, "0")}`;
+}
+
 async function insertUser(
   client: pg.Client,
   values: {
@@ -151,6 +155,7 @@ async function insertOrder(
   client: pg.Client,
   values: {
     id: string;
+    orderCode: string;
     customerName: string;
     status: OrderStatus;
     totalPrice: number;
@@ -162,6 +167,7 @@ async function insertOrder(
     `
       INSERT INTO orders (
         id,
+        "orderCode",
         "customerName",
         status,
         "totalPrice",
@@ -169,10 +175,11 @@ async function insertOrder(
         "createdAt",
         "updatedAt"
       )
-      VALUES ($1, $2, $3::"OrderStatus", $4, $5, NOW(), NOW())
+      VALUES ($1, $2, $3, $4::"OrderStatus", $5, $6, NOW(), NOW())
     `,
     [
       values.id,
+      values.orderCode,
       values.customerName,
       values.status,
       values.totalPrice,
@@ -345,6 +352,9 @@ async function main() {
       quantity: 1,
     },
   ];
+  const seedOrderOneCode = createSeedOrderCode(1);
+  const seedOrderTwoCode = createSeedOrderCode(2);
+  const seedOrderThreeCode = createSeedOrderCode(3);
 
   try {
     await client.connect();
@@ -390,6 +400,7 @@ async function main() {
 
     await insertOrder(client, {
       id: createId(),
+      orderCode: seedOrderOneCode,
       customerName: "Acme Retail Ltd.",
       status: "PENDING",
       totalPrice: calculateTotal(orderOneItems),
@@ -399,6 +410,7 @@ async function main() {
 
     await insertOrder(client, {
       id: createId(),
+      orderCode: seedOrderTwoCode,
       customerName: "Northwind Traders",
       status: "SHIPPED",
       totalPrice: calculateTotal(orderTwoItems),
@@ -408,6 +420,7 @@ async function main() {
 
     await insertOrder(client, {
       id: createId(),
+      orderCode: seedOrderThreeCode,
       customerName: "Orbit Fulfillment",
       status: "DELIVERED",
       totalPrice: calculateTotal(orderThreeItems),
@@ -437,7 +450,7 @@ async function main() {
     });
     await insertActivityLog(client, {
       id: createId(),
-      message: "Seeded starter orders and restock queue",
+      message: `Seeded starter orders ${seedOrderOneCode}, ${seedOrderTwoCode}, and ${seedOrderThreeCode}`,
       userId: managerUser.id,
     });
 

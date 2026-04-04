@@ -98,6 +98,7 @@ model Product {
 
 model Order {
   id           String      @id @default(cuid())
+  orderCode    String?     @unique
   customerName String
   status       OrderStatus @default(PENDING)
   totalPrice   Decimal     @db.Decimal(10, 2)

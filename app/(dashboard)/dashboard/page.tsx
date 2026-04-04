@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import {
   eachDayOfInterval,
   endOfDay,
@@ -7,6 +7,7 @@ import {
   subDays,
 } from "date-fns";
 
+import { LocalDateTime } from "@/components/local-date-time";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -19,6 +20,35 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { OrdersBarChart } from "./_components/orders-bar-chart";
+
+type DashboardData = {
+  todayOrders: number;
+  pendingOrders: number;
+  lowStockCount: number;
+  todayRevenue: number;
+  productSummary: Array<{
+    id: string;
+    name: string;
+    stock: number;
+    minStockThreshold: number;
+    category: {
+      name: string;
+    };
+  }>;
+  dailyOrderCounts: Array<{
+    day: string;
+    orders: number;
+  }>;
+  recentActivity: Array<{
+    id: string;
+    message: string;
+    createdAt: Date;
+    user: {
+      name: string;
+    };
+  }>;
+  hasDataError: boolean;
+};
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -65,97 +95,129 @@ export default async function DashboardPage() {
   const todayStart = startOfDay(new Date());
   const todayEnd = endOfDay(todayStart);
   const last7DaysStart = startOfDay(subDays(todayStart, 6));
+  let dashboardData: DashboardData;
 
-  const [
-    todayOrders,
-    pendingOrders,
-    lowStockCount,
-    todayRevenueAggregate,
-    productSummary,
-    last7DayOrders,
-    recentActivity,
-  ] = await Promise.all([
-    prisma.order.count({
-      where: {
-        createdAt: {
-          gte: todayStart,
-          lte: todayEnd,
+  try {
+    const [
+      todayOrders,
+      pendingOrders,
+      stockThresholdSummary,
+      todayRevenueAggregate,
+      productSummary,
+      last7DayOrders,
+      recentActivity,
+    ] = await Promise.all([
+      prisma.order.count({
+        where: {
+          createdAt: {
+            gte: todayStart,
+            lte: todayEnd,
+          },
         },
-      },
-    }),
-    prisma.order.count({
-      where: {
-        status: "PENDING",
-      },
-    }),
-    prisma.product.count({
-      where: {
-        stock: {
-          lt: prisma.product.fields.minStockThreshold,
+      }),
+      prisma.order.count({
+        where: {
+          status: "PENDING",
         },
-      },
-    }),
-    prisma.order.aggregate({
-      where: {
-        status: {
-          in: ["SHIPPED", "DELIVERED"],
+      }),
+      prisma.product.findMany({
+        select: {
+          stock: true,
+          minStockThreshold: true,
         },
-        createdAt: {
-          gte: todayStart,
-          lte: todayEnd,
+      }),
+      prisma.order.aggregate({
+        where: {
+          status: {
+            in: ["SHIPPED", "DELIVERED"],
+          },
+          createdAt: {
+            gte: todayStart,
+            lte: todayEnd,
+          },
         },
-      },
-      _sum: {
-        totalPrice: true,
-      },
-    }),
-    prisma.product.findMany({
-      include: {
-        category: true,
-      },
-      orderBy: [{ stock: "asc" }, { name: "asc" }],
-    }),
-    prisma.order.findMany({
-      where: {
-        createdAt: {
-          gte: last7DaysStart,
-          lte: todayEnd,
+        _sum: {
+          totalPrice: true,
         },
-      },
-      select: {
-        createdAt: true,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-    }),
-    prisma.activityLog.findMany({
-      include: {
-        user: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 6,
-    }),
-  ]);
+      }),
+      prisma.product.findMany({
+        include: {
+          category: true,
+        },
+        orderBy: [{ stock: "asc" }, { name: "asc" }],
+      }),
+      prisma.order.findMany({
+        where: {
+          createdAt: {
+            gte: last7DaysStart,
+            lte: todayEnd,
+          },
+        },
+        select: {
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      }),
+      prisma.activityLog.findMany({
+        include: {
+          user: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 6,
+      }),
+    ]);
 
-  const dailyOrderCounts = eachDayOfInterval({
-    start: last7DaysStart,
-    end: todayStart,
-  }).map((date) => {
-    const dayKey = format(date, "yyyy-MM-dd");
-    const orders = last7DayOrders.filter(
-      (order) => format(order.createdAt, "yyyy-MM-dd") === dayKey,
-    ).length;
+    const dailyOrderCounts = eachDayOfInterval({
+      start: last7DaysStart,
+      end: todayStart,
+    }).map((date) => {
+      const dayKey = format(date, "yyyy-MM-dd");
+      const orders = last7DayOrders.filter(
+        (order) => format(order.createdAt, "yyyy-MM-dd") === dayKey,
+      ).length;
 
-    return {
-      day: format(date, "EEE"),
-      orders,
+      return {
+        day: format(date, "EEE"),
+        orders,
+      };
+    });
+
+    dashboardData = {
+      todayOrders,
+      pendingOrders,
+      lowStockCount: stockThresholdSummary.filter(
+        (product) => product.stock < product.minStockThreshold,
+      ).length,
+      todayRevenue: Number(todayRevenueAggregate._sum.totalPrice ?? 0),
+      productSummary,
+      dailyOrderCounts,
+      recentActivity,
+      hasDataError: false,
     };
-  });
+  } catch (error) {
+    console.error("Failed to load dashboard data", error);
 
-  const todayRevenue = Number(todayRevenueAggregate._sum.totalPrice ?? 0);
+    dashboardData = {
+      todayOrders: 0,
+      pendingOrders: 0,
+      lowStockCount: 0,
+      todayRevenue: 0,
+      productSummary: [],
+      dailyOrderCounts: eachDayOfInterval({
+        start: last7DaysStart,
+        end: todayStart,
+      }).map((date) => ({
+        day: format(date, "EEE"),
+        orders: 0,
+      })),
+      recentActivity: [],
+      hasDataError: true,
+    };
+  }
 
   return (
     <div className="space-y-6">
@@ -168,55 +230,53 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {dashboardData.hasDataError ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Some dashboard data is temporarily unavailable. Please refresh in a moment.
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-zinc-200 bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-500">
-              Total Orders Today
-            </CardTitle>
+            <CardTitle className="text-sm text-zinc-500">Total Orders Today</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tracking-tight text-zinc-950">
-              {todayOrders}
+              {dashboardData.todayOrders}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-zinc-200 bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-500">
-              Pending Orders
-            </CardTitle>
+            <CardTitle className="text-sm text-zinc-500">Pending Orders</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tracking-tight text-zinc-950">
-              {pendingOrders}
+              {dashboardData.pendingOrders}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-zinc-200 bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-500">
-              Low Stock Items
-            </CardTitle>
+            <CardTitle className="text-sm text-zinc-500">Low Stock Items</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tracking-tight text-zinc-950">
-              {lowStockCount}
+              {dashboardData.lowStockCount}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-zinc-200 bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-500">
-              Revenue Today
-            </CardTitle>
+            <CardTitle className="text-sm text-zinc-500">Revenue Today</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tracking-tight text-zinc-950">
-              {formatCurrency(todayRevenue)}
+              {formatCurrency(dashboardData.todayRevenue)}
             </p>
           </CardContent>
         </Card>
@@ -238,31 +298,20 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {productSummary.length === 0 ? (
+                {dashboardData.productSummary.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="px-4 py-10 text-center text-sm text-zinc-500"
-                    >
+                    <TableCell colSpan={4} className="px-4 py-10 text-center text-sm text-zinc-500">
                       No products available yet.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  productSummary.map((product) => (
+                  dashboardData.productSummary.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="px-4 font-medium text-zinc-950">
-                        {product.name}
-                      </TableCell>
+                      <TableCell className="px-4 font-medium text-zinc-950">{product.name}</TableCell>
+                      <TableCell className="px-4 text-zinc-600">{product.category.name}</TableCell>
                       <TableCell className="px-4 text-zinc-600">
-                        {product.category.name}
-                      </TableCell>
-                      <TableCell className="px-4 text-zinc-600">
-                        <span className="font-medium text-zinc-950">
-                          {product.stock}
-                        </span>
-                        <span className="ml-2 text-xs text-zinc-500">
-                          min {product.minStockThreshold}
-                        </span>
+                        <span className="font-medium text-zinc-950">{product.stock}</span>
+                        <span className="ml-2 text-xs text-zinc-500">min {product.minStockThreshold}</span>
                       </TableCell>
                       <TableCell className="px-4">
                         <StockIndicator
@@ -283,7 +332,7 @@ export default async function DashboardPage() {
             <CardTitle>Orders Per Day</CardTitle>
           </CardHeader>
           <CardContent>
-            <OrdersBarChart data={dailyOrderCounts} />
+            <OrdersBarChart data={dashboardData.dailyOrderCounts} />
           </CardContent>
         </Card>
       </div>
@@ -299,28 +348,24 @@ export default async function DashboardPage() {
           </Link>
         </CardHeader>
         <CardContent className="space-y-0">
-          {recentActivity.length === 0 ? (
-            <div className="py-6 text-sm text-zinc-500">
-              No recent activity yet.
-            </div>
+          {dashboardData.recentActivity.length === 0 ? (
+            <div className="py-6 text-sm text-zinc-500">No recent activity yet.</div>
           ) : (
             <div className="divide-y divide-zinc-200">
-              {recentActivity.map((log) => (
+              {dashboardData.recentActivity.map((log) => (
                 <div
                   key={log.id}
                   className="flex flex-col gap-1 py-4 sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div>
-                    <p className="text-sm font-medium text-zinc-950">
-                      {log.message}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {log.user.name}
-                    </p>
+                    <p className="text-sm font-medium text-zinc-950">{log.message}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{log.user.name}</p>
                   </div>
-                  <p className="text-xs text-zinc-500">
-                    {format(new Date(log.createdAt), "MMM d · h:mm a")}
-                  </p>
+                  <LocalDateTime
+                    value={log.createdAt}
+                    variant="activity-short"
+                    className="text-xs text-zinc-500"
+                  />
                 </div>
               ))}
             </div>

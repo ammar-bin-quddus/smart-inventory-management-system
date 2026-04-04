@@ -72,8 +72,15 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         }}
         totalCount={orderResult.totalCount}
         orders={orderResult.items.map((order) => ({
-          ...order,
+          id: order.id,
+          orderCode: order.orderCode ?? order.id.slice(0, 8).toUpperCase(),
+          customerName: order.customerName,
           totalPrice: order.totalPrice.toString(),
+          status: order.status,
+          createdAt: order.createdAt,
+          items: order.items.map((item) => ({
+            id: item.id,
+          })),
         }))}
       />
 

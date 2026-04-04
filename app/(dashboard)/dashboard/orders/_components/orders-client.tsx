@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 type OrderRow = {
   id: string;
+  orderCode: string;
   customerName: string;
   totalPrice: string | number;
   status: keyof typeof OrderStatus;
@@ -295,7 +296,7 @@ export function OrdersClient({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="px-4">Order ID</TableHead>
+              <TableHead className="px-4">Order Code</TableHead>
               <TableHead className="px-4">Customer</TableHead>
               <TableHead className="px-4">Items Count</TableHead>
               <TableHead className="px-4">Total</TableHead>
@@ -318,7 +319,7 @@ export function OrdersClient({
               orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="px-4 font-medium text-zinc-950">
-                    {order.id.slice(0, 8)}
+                    {order.orderCode}
                   </TableCell>
                   <TableCell className="px-4 text-zinc-600">
                     {order.customerName}
