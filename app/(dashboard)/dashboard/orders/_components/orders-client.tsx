@@ -10,6 +10,12 @@ import { cancelOrder, updateOrderStatus, type OrderActionResult } from "@/action
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -29,6 +35,11 @@ type OrderRow = {
   createdAt: Date;
   items: {
     id: string;
+    quantity: number;
+    price: string | number;
+    product: {
+      name: string;
+    };
   }[];
 };
 
@@ -97,6 +108,7 @@ export function OrdersClient({
   const [dateToValue, setDateToValue] = useState(filters.dateTo);
   const [feedback, setFeedback] = useState<OrderActionResult | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const updateQueryParams = (updates: Record<string, string | null>) => {
@@ -174,6 +186,9 @@ export function OrdersClient({
     });
   };
   const hasActiveDateFilters = Boolean(filters.dateFrom || filters.dateTo);
+  const selectedOrderTotal = selectedOrder
+    ? formatPrice(selectedOrder.totalPrice)
+    : null;
 
   return (
     <div className="space-y-4">
@@ -319,7 +334,13 @@ export function OrdersClient({
               orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="px-4 font-medium text-zinc-950">
-                    {order.orderCode}
+                    <button
+                      type="button"
+                      className="font-medium text-zinc-950 underline-offset-4 hover:underline"
+                      onClick={() => setSelectedOrder(order)}
+                    >
+                      {order.orderCode}
+                    </button>
                   </TableCell>
                   <TableCell className="px-4 text-zinc-600">
                     {order.customerName}
@@ -356,14 +377,15 @@ export function OrdersClient({
                       order.status !== OrderStatus.DELIVERED ? (
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="destructive"
                           size="sm"
                           className="gap-2"
+                          title="Cancel Order"
                           disabled={isPending || pendingOrderId === order.id}
                           onClick={() => handleCancel(order.id)}
                         >
                           <XCircle className="size-4" />
-                          Cancel
+                          
                         </Button>
                       ) : null}
                     </div>
@@ -374,6 +396,93 @@ export function OrdersClient({
           </TableBody>
         </Table>
       </div>
+
+      <Dialog
+        open={Boolean(selectedOrder)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedOrder(null);
+          }
+        }}
+      >
+        <DialogContent className="border-zinc-200 bg-white sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedOrder ? `Order ${selectedOrder.orderCode}` : "Order Details"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedOrder ? (
+            <div className="space-y-4">
+              <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Customer
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-zinc-950">
+                    {selectedOrder.customerName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Status
+                  </p>
+                  <div className="mt-1">
+                    <StatusBadge status={selectedOrder.status} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Date
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-700">
+                    {format(new Date(selectedOrder.createdAt), "MMM d, yyyy")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Total
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-zinc-950">
+                    {selectedOrderTotal}
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border border-zinc-200">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="px-4">Item</TableHead>
+                      <TableHead className="px-4">Quantity</TableHead>
+                      <TableHead className="px-4">Unit Price</TableHead>
+                      <TableHead className="px-4 text-right">Line Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedOrder.items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="px-4 font-medium text-zinc-950">
+                          {item.product.name}
+                        </TableCell>
+                        <TableCell className="px-4 text-zinc-600">
+                          {item.quantity}
+                        </TableCell>
+                        <TableCell className="px-4 text-zinc-600">
+                          {formatPrice(item.price)}
+                        </TableCell>
+                        <TableCell className="px-4 text-right text-zinc-950">
+                          {formatPrice(Number(item.price) * item.quantity)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

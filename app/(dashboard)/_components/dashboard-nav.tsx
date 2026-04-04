@@ -60,7 +60,7 @@ export function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="space-y-1">
       {navItems.map((item) => {
         const isActive =
-          pathname === item.href || pathname.startsWith(`${item.href}/`);
+          pathname === item.href;
 
         return (
           <Link
@@ -68,9 +68,9 @@ export function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium transition-colors",
               isActive
-                ? "bg-zinc-950 text-white shadow-sm"
+                ? "bg-zinc-900 text-white shadow-sm"
                 : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950",
             )}
           >

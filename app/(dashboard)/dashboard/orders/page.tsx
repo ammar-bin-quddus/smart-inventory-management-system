@@ -80,6 +80,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           createdAt: order.createdAt,
           items: order.items.map((item) => ({
             id: item.id,
+            quantity: item.quantity,
+            price: item.price.toString(),
+            product: {
+              name: item.product.name,
+            },
           })),
         }))}
       />

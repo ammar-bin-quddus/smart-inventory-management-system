@@ -213,16 +213,15 @@ export function CategoriesClient({
                     {canDelete ? (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="destructive"
                         size="sm"
-                        className="gap-2"
+                        className="size-8 p-0"
                         disabled={isPending || pendingDeleteId === category.id}
+                        aria-label={`Delete ${category.name}`}
+                        title={`Delete ${category.name}`}
                         onClick={() => handleDelete(category.id)}
                       >
                         <Trash2 className="size-4" />
-                        {pendingDeleteId === category.id
-                          ? "Deleting..."
-                          : "Delete"}
                       </Button>
                     ) : (
                       <span className="text-xs text-zinc-400">

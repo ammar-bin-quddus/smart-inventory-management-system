@@ -605,29 +605,29 @@ export function ProductsClient({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="gap-2"
+                        className="size-8 p-0"
                         disabled={isPending}
+                        aria-label={`Edit ${product.name}`}
+                        title={`Edit ${product.name}`}
                         onClick={() => {
                           setUpdateFeedback(null);
                           setEditingProduct(product);
                         }}
                       >
                         <Pencil className="size-4" />
-                        Edit
                       </Button>
                       {canDelete ? (
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="destructive"
                           size="sm"
-                          className="gap-2"
+                          className="size-8 p-0"
                           disabled={isPending || pendingDeleteId === product.id}
+                          aria-label={`Delete ${product.name}`}
+                          title={`Delete ${product.name}`}
                           onClick={() => handleDelete(product.id)}
                         >
                           <Trash2 className="size-4" />
-                          {pendingDeleteId === product.id
-                            ? "Deleting..."
-                            : "Delete"}
                         </Button>
                       ) : (
                         <span className="self-center text-xs text-zinc-400">
